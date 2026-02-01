@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Google Calendar Start Reschedule",
+  "version": "1.0.0",
+  "description": "",
+  "permissions": [],
+  "content_scripts": [
+    {
+      "matches": ["https://calendar.google.com/*"],
+      "js": ["content.js"],
+      "css": ["inject.css"]
+    }
+  ]
+}

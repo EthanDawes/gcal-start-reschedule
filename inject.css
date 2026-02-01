@@ -1,0 +1,22 @@
+.resched-top {
+    top: 0;
+    cursor: ns-resize;
+
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 50%;
+    max-height: 8px;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    align-items: center;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+    justify-content: center;
+    z-index: 5004;
+    -webkit-user-select: none;
+    user-select: none;
+}
