@@ -42,24 +42,49 @@ function onDragStart(ev) {
   ];
 
   document.addEventListener("mousemove", onDragMove);
-  window.addEventListener("mouseup", (ev) => {
-    console.log("drag end");
-    // Restore interactivity
-    document.documentElement.style.pointerEvents = "";
-    dragElem.querySelector(".resched-top").style.pointerEvents = "";
-    document.removeEventListener("mousemove", onDragMove);
-  });
+  window.addEventListener("mouseup", onDragEnd);
+}
+
+function roundTo(num, to) {
+  return Math.round(num / to) * to;
+}
+
+// Returns top, height
+function calcDragDimensions() {
+  const minHeight = 11;
+  const dragDiff = dragEnd - dragStart;
+  const bottom = dragEventOriginalDim[0] + dragEventOriginalDim[1];
+  return [
+    Math.min(dragEventOriginalDim[0] + dragDiff, bottom - minHeight),
+    Math.max(dragEventOriginalDim[1] - dragDiff, minHeight),
+  ];
 }
 
 function onDragMove(ev) {
-  const minHeight = 11;
-  const dragDiff = ev.pageY - dragStart;
-  console.log("move", dragDiff);
-  const bottom = dragEventOriginalDim[0] + dragEventOriginalDim[1];
-  dragElem.style.top =
-    Math.min(dragEventOriginalDim[0] + dragDiff, bottom - minHeight) + "px";
-  dragElem.style.height =
-    Math.max(dragEventOriginalDim[1] - dragDiff, minHeight) + "px";
+  console.log("move");
+  dragEnd = ev.pageY;
+  const [top, height] = calcDragDimensions();
+
+  dragElem.style.top = top + "px";
+  dragElem.style.height = height + "px";
+}
+
+function onDragEnd(ev) {
+  console.log("drag end");
+  // Convert to minutes
+  const [top, height] = calcDragDimensions();
+  const pxToMin = 526 / (11 * 60);
+  alert("Duration: " + roundTo(height / pxToMin, 15) / 60);
+  alert(
+    "Delta start: " +
+      roundTo((top - dragEventOriginalDim[0]) / pxToMin, 15) / 60,
+  );
+
+  // Restore interactivity
+  document.documentElement.style.pointerEvents = "";
+  dragElem.querySelector(".resched-top").style.pointerEvents = "";
+  document.removeEventListener("mousemove", onDragMove);
+  window.removeEventListener("mouseup", onDragEnd);
 }
 
 function init() {
