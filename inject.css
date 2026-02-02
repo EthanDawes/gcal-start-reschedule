@@ -1,6 +1,7 @@
 .resched-top {
     top: 0;
     cursor: ns-resize;
+    pointer-events: all;
 
     position: absolute;
     left: 0;

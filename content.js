@@ -15,19 +15,24 @@ function addHandles(target) {
   const dragTarget = document.createElement("div");
   dragTarget.setAttribute("aria-hidden", "true");
   dragTarget.className = "resched-top";
+  dragTarget.onmousedown = onDragStart;
   target.appendChild(dragTarget);
-  target.onmousedown = onHandleDrag;
 }
 
-let dragStart;
-let dragElem;
-let dragEventId;
-let dragEventOriginalDim;
+let dragStart; // mouse Y when drag start
+let dragElem; // Event element that is being rescheduled
+let dragEventId; // Event ID that is being rescheduled
+let dragEventOriginalDim; // Dimensions [top, height] of event element that is being dragged
 
-function onHandleDrag(ev) {
-  ev.preventDefault();
+function onDragStart(ev) {
+  // Prevent dragging whole event
   ev.stopPropagation();
-  console.log("drag");
+  // Prevent creating new events when mouse lifted
+  document.documentElement.style.pointerEvents = "none";
+  // Prevent showing current event details when releasing
+  ev.target.style.pointerEvents = "none";
+
+  console.log("drag start");
   dragStart = ev.pageY;
   dragElem = ev.target.parentElement;
   dragEventId = dragElem.dataset.eventid;
@@ -36,22 +41,25 @@ function onHandleDrag(ev) {
     Number.parseInt(dragElem.style.height),
   ];
 
-  document.addEventListener("mousemove", onEventDrag);
-
-  document.addEventListener("mouseup", (ev) => {
-    // TODO: prevent creating new event when mouse lifted
-    ev.preventDefault();
-    ev.stopPropagation();
-
-    document.removeEventListener("mousemove", onEventDrag);
+  document.addEventListener("mousemove", onDragMove);
+  window.addEventListener("mouseup", (ev) => {
+    console.log("drag end");
+    // Restore interactivity
+    document.documentElement.style.pointerEvents = "";
+    dragElem.querySelector(".resched-top").style.pointerEvents = "";
+    document.removeEventListener("mousemove", onDragMove);
   });
 }
 
-function onEventDrag(ev) {
+function onDragMove(ev) {
+  const minHeight = 11;
   const dragDiff = ev.pageY - dragStart;
   console.log("move", dragDiff);
-  dragElem.style.top = dragEventOriginalDim[0] + dragDiff + "px";
-  dragElem.style.height = dragEventOriginalDim[1] - dragDiff + "px";
+  const bottom = dragEventOriginalDim[0] + dragEventOriginalDim[1];
+  dragElem.style.top =
+    Math.min(dragEventOriginalDim[0] + dragDiff, bottom - minHeight) + "px";
+  dragElem.style.height =
+    Math.max(dragEventOriginalDim[1] - dragDiff, minHeight) + "px";
 }
 
 function init() {
