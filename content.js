@@ -139,6 +139,13 @@ async function onDragEnd(ev) {
   console.log("New duration (minutes):", newDurationMinutes);
   console.log("Starting offset (minutes):", startingOffsetMinutes);
 
+  if (isNaN(startingOffsetMinutes) || startingOffsetMinutes == 0) {
+    // Don't do anything if just clicked, no reschedule
+    showNotification("No change made", "success");
+    revertEventChanges();
+    return;
+  }
+
   // Get calendar ID from the current URL or page context
   const [calendarId, dragEventId] = extractCalendarAndEventId(dragElem);
   console.log("Rescheduling", calendarId, dragEventId);
