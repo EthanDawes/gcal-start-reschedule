@@ -1,11 +1,23 @@
 // Callback function to execute when mutations are observed
-const callback = (mutationList, observer) => {
+const onMutation = (mutationList, observer) => {
   for (const mutation of mutationList) {
     const handlesRemoved =
       mutation.type === "childList" &&
-      mutation.removedNodes[0]?.className === "resched-top";
+      Array.from(mutation.removedNodes).some(
+        (node) => node.className === "resched-top",
+      );
     const newCalEvents = mutation.type === "attributes";
-    if (handlesRemoved || newCalEvents) {
+    const calAdded =
+      mutation.type === "childList" &&
+      Array.from(mutation.addedNodes).some(
+        (node) => node?.hasAttribute?.("data-eventchip"), // Can sometimes be text nodes, which don't have `hasAttribute`
+      );
+    // Observing creation of nodes with attr `data-eventchip` seems to have no effect
+    if (handlesRemoved || newCalEvents || calAdded) {
+      console.log(
+        "Restoring handles because",
+        handlesRemoved ? "removed" : "data-eventchip attr modified",
+      );
       addHandles(mutation.target);
     }
   }
@@ -200,8 +212,9 @@ function init() {
     attributeFilter: ["data-eventchip"],
   };
 
-  const observer = new MutationObserver(callback);
-  observer.observe(document.querySelector('[role="main"]'), config);
+  const observer = new MutationObserver(onMutation);
+  // Observing `[role="main"]` loses tracking when changing pages
+  observer.observe(document.body, config);
 
   document.querySelectorAll("[data-eventchip]").forEach(addHandles);
 }
