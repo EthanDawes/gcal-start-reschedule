@@ -3,17 +3,10 @@ const onMutation = (mutationList, observer) => {
   for (const mutation of mutationList) {
     const handlesRemoved =
       mutation.type === "childList" &&
-      Array.from(mutation.removedNodes).some(
-        (node) => node.className === "resched-top",
-      );
+      mutation.removedNodes[0]?.className === "resched-top";
     const newCalEvents = mutation.type === "attributes";
-    const calAdded =
-      mutation.type === "childList" &&
-      Array.from(mutation.addedNodes).some(
-        (node) => node?.hasAttribute?.("data-eventchip"), // Can sometimes be text nodes, which don't have `hasAttribute`
-      );
     // Observing creation of nodes with attr `data-eventchip` seems to have no effect
-    if (handlesRemoved || newCalEvents || calAdded) {
+    if (handlesRemoved || newCalEvents) {
       console.log(
         "Restoring handles because",
         handlesRemoved ? "removed" : "data-eventchip attr modified",
@@ -204,6 +197,11 @@ function showNotification(message, type = "info") {
   }, 5000);
 }
 
+function attachAll() {
+  console.log("Attaching event handles");
+  document.querySelectorAll("[data-eventchip]").forEach(addHandles);
+}
+
 function init() {
   const config = {
     attributes: true,
@@ -216,7 +214,20 @@ function init() {
   // Observing `[role="main"]` loses tracking when changing pages
   observer.observe(document.body, config);
 
-  document.querySelectorAll("[data-eventchip]").forEach(addHandles);
+  attachAll();
+
+  window.navigation.addEventListener("navigate", (e) => {
+    // For some reason, gcal fires `navigate` events for clicking events & other random things
+    // I only care about view changes
+    const from = window.location.href;
+    const to = e.destination.url;
+
+    if (from !== to) {
+      console.log(`Navigating from ${from} to ${to}`);
+      // kinda hacky, but it works
+      setTimeout(attachAll, 1000);
+    }
+  });
 }
 
 setTimeout(init, 1 * 1000);
