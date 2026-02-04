@@ -4,7 +4,9 @@ const onMutation = (mutationList, observer) => {
     const handlesRemoved =
       mutation.type === "childList" &&
       mutation.removedNodes[0]?.className === "resched-top";
-    const newCalEvents = mutation.type === "attributes";
+    const newCalEvents =
+      mutation.type === "attributes" &&
+      mutation.attributeName === "data-eventchip";
     // Observing creation of nodes with attr `data-eventchip` seems to have no effect
     if (handlesRemoved || newCalEvents) {
       console.log(
@@ -12,9 +14,52 @@ const onMutation = (mutationList, observer) => {
         handlesRemoved ? "removed" : "data-eventchip attr modified",
       );
       addHandles(mutation.target);
+      continue;
+    }
+
+    // For some reason, there's no event when `li[role=menuitem]` is added,
+    // but there is when div elements are added to its container. Maybe these elements are reused?
+    // Anyways, I can just watch for parent == `ul`
+    //
+    // const isMenuItem =
+    //   mutation.type === "attributes" &&
+    //   mutation.attributeName === "role" &&
+    //   mutation.target.getAttribute("role") === "menuitem";
+    // const menuAdded =
+    //   mutation.type === "childList" &&
+    //   mutation.addedNodes[0]?.getAttribute?.("role") === "menuitem";
+
+    // Observe when "copy to calendar" buttons added to DOM
+    // TODO: debounce
+    if (
+      mutation.target instanceof HTMLUListElement &&
+      mutation.addedNodes.length
+    ) {
+      console.log("Menu items added", mutation.target);
+      addMoveCopyBtns(mutation.target.querySelectorAll("[data-eventid]")); // TODO: this ignores the regular "duplicate" button
     }
   }
 };
+
+function addMoveCopyBtns(buttons) {
+  const internalId = buttons[0].getAttribute("data-eventid");
+  const eventElement = document.querySelector(
+    `[data-eventid="${internalId}"][jslog]`,
+  );
+  const [calendarId, eventId] = extractCalendarAndEventId(eventElement);
+
+  for (const button of buttons) {
+    button.onclick = onCopyClick;
+  }
+}
+
+function onCopyClick(ev) {
+  // preventDefault & stopPropagation seem to have no effect
+  prompt(
+    "Would you like to move or copy, 1 or all? Options: copy 1, copy all, move 1, move all",
+    "copy all",
+  );
+}
 
 function addHandles(target) {
   const dragTarget = document.createElement("div");
