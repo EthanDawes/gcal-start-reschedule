@@ -1,9 +1,8 @@
 // Background script for Google Calendar Start Reschedule extension
 // Handles OAuth authentication and Google Calendar API operations
 
-// const API_KEY = "YOUR_API_KEY_HERE";
-// const DISCOVERY_DOC =
-//   "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest";
+// Chrome Identity API does not work in the content script, must be in background
+
 const SCOPES = "https://www.googleapis.com/auth/calendar.events";
 
 // Store the OAuth token
@@ -174,5 +173,3 @@ function clearAuthToken() {
     console.log("All cached auth tokens cleared");
   });
 }
-
-// TODO: all of this probably doesn't need to be in the background

@@ -25,6 +25,7 @@ function addHandles(target) {
 }
 
 let dragStart; // mouse Y when drag start
+let dragEnd;
 let dragElem; // Event element that is being rescheduled
 let dragEventOriginalDim; // Dimensions [top, height] of event element that is being dragged
 
