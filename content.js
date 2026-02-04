@@ -144,15 +144,14 @@ const extractCalendarAndEventId = (el) => {
   const jslog = el.getAttribute("jslog") ?? "";
 
   const calendarId = jslog.match(/1:\["([^"]+)",\d\]/)?.[1] ?? null;
-
-  const rawEventId = jslog.match(/2:\["([^"]+)"/)?.[1] ?? null;
-
-  const eventId = rawEventId?.includes("_")
-    ? rawEventId.split("_")[0]
-    : (rawEventId ?? null);
+  const eventId = jslog.match(/2:\["([^"]+)"/)?.[1] ?? null;
 
   return [calendarId, eventId];
 };
+
+function getSeriesId(eventId) {
+  return eventId?.includes("_") ? eventId.split("_")[0] : eventId;
+}
 
 // Revert visual changes to the event element
 function revertEventChanges() {
