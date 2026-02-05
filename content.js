@@ -128,8 +128,13 @@ async function onDragEnd(ev) {
   console.log("New duration (minutes):", newDurationMinutes);
   console.log("Starting offset (minutes):", startingOffsetMinutes);
 
-  if (isNaN(startingOffsetMinutes) || startingOffsetMinutes == 0) {
-    // Don't do anything if just clicked, no reschedule
+  if (isNaN(startingOffsetMinutes)) {
+    // Click but no drag. Click event instead
+    dragElem.click();
+    return;
+  }
+  if (startingOffsetMinutes == 0) {
+    // Did not change enough to save, notify
     showNotification("No change made", "success");
     revertEventChanges();
     return;
