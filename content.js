@@ -44,10 +44,37 @@ function addMoveCopyBtns(buttons) {
 
 function onCopyClick(ev) {
   // preventDefault & stopPropagation seem to have no effect
-  prompt(
+  const mode = prompt(
     "Would you like to move or copy, 1 or all? Options: copy 1, copy all, move 1, move all. all/1 will have no effect on non-repeating events and can be omitted",
     "copy all",
-  );
+  ).split(" ");
+  const verb = mode[0];
+  const quantity = mode[1] || "all";
+  if (
+    (verb != "copy" || verb != "move") &&
+    (quantity != "1" || quantity != "all")
+  ) {
+    alert("Unknown command. Proceeding with regular copy action");
+    return;
+  }
+
+  if (quantity === "1") {
+    // Use the API to fetch the event details for that instance
+    // Redirect to a "create  event" page so the UX is similar (old page may briefly flash)
+    // https://www.maxkohler.com/posts/calendar-links
+    // https://chatgpt.com/c/6984f01a-cf20-8331-b1e7-68ad50495309
+    if (verb === "move") {
+      // Use the API to delete the one instance
+    }
+  } else {
+    // all
+    if (verb === "move") {
+      // show the "copy event" dialogue, as usual
+      // In the background, use the API to delete the event series
+      // Upon returning, wait for sync to remove the old event (don't need instant refresh because nothing bad can happen if you try to edit the ghost event)
+    }
+    // copy all: do nothing, this is default action
+  }
 }
 
 function addHandles(target) {
