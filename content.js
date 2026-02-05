@@ -38,11 +38,13 @@ function addMoveCopyBtns(buttons) {
   const [calendarId, eventId] = extractCalendarAndEventId(eventElement);
 
   for (const button of buttons) {
-    button.onclick = (ev) => onCopyClick(ev, calendarId, eventId);
+    // Despite the name, these are actualy `li` elements
+    const dstCal = atob(button.dataset.id);
+    button.onclick = (ev) => onCopyClick(ev, calendarId, eventId, dstCal);
   }
 }
 
-async function onCopyClick(ev, calendarId, eventId) {
+async function onCopyClick(ev, calendarId, eventId, dstCal) {
   // preventDefault & stopPropagation seem to have no effect
   const mode = prompt(
     "Would you like to move or copy, 1 or all? Options: copy 1, copy all, move 1, move all. all/1 will have no effect on non-repeating events and can be omitted",
@@ -61,40 +63,62 @@ async function onCopyClick(ev, calendarId, eventId) {
   if (quantity === "1") {
     // Use the API to fetch the event details for that instance
     try {
-      const response = await chrome.runtime.sendMessage({
+      const getResponse = await chrome.runtime.sendMessage({
         action: "getEvent",
         data: { calendarId, eventId },
       });
 
-      if (response.success) {
-        // Redirect to a "create event" page so the UX is similar (old page may briefly flash)
-        // https://www.maxkohler.com/posts/calendar-links
-        const eventUrl = createGoogleCalendarUrl(response.data);
-        console.log(eventUrl);
-        location.assign(eventUrl);
+      debugger;
+      if (getResponse.success) {
+        // Create a new event using the API (copy of the particular instance) on the correct destination calendar
+        const createResponse = await chrome.runtime.sendMessage({
+          action: "createEvent",
+          data: {
+            calendarId: dstCal,
+            eventData: getResponse.data,
+          },
+        });
+        debugger;
 
-        if (verb === "move") {
-          // Use the API to delete the one instance
-          const deleteResponse = await chrome.runtime.sendMessage({
-            action: "deleteEvent",
-            data: { calendarId, eventId },
-          });
+        if (createResponse.success) {
+          // Open it for editing using this URL and the event id returned in the response
+          // https://calendar.google.com/calendar/u/0/r/eventedit/<eventId>
+          const internalId = createResponse.data.htmlLink.split("=")[1];
+          const editUrl =
+            "https://calendar.google.com/calendar/u/0/r/eventedit/" +
+            internalId;
 
-          if (deleteResponse.success) {
-            showNotification("Event moved successfully!", "success");
-            location.reload();
+          location.assign(editUrl);
+
+          if (verb === "move") {
+            // Use the API to delete the one instance
+            const deleteResponse = await chrome.runtime.sendMessage({
+              action: "deleteEvent",
+              data: { calendarId, eventId },
+            });
+
+            if (deleteResponse.success) {
+              showNotification("Event moved successfully!", "success");
+              location.reload();
+            } else {
+              showNotification(
+                "Failed to delete original event: " + deleteResponse.error,
+                "error",
+              );
+            }
           } else {
-            showNotification(
-              "Failed to delete original event: " + deleteResponse.error,
-              "error",
-            );
+            showNotification("Event copied! Check the new tab.", "success");
           }
         } else {
-          showNotification("Event copied! Check the new tab.", "success");
+          showNotification(
+            "Failed to create new event: " + createResponse.error,
+            "error",
+          );
+          return;
         }
       } else {
         showNotification(
-          "Failed to fetch event details: " + response.error,
+          "Failed to fetch event details: " + getResponse.error,
           "error",
         );
         return;
@@ -278,6 +302,7 @@ const extractCalendarAndEventId = (el) => {
   const jslog = el.getAttribute("jslog") ?? "";
 
   const calendarId = jslog.match(/1:\["([^"]+)",\d\]/)?.[1] ?? null;
+  // TODO: can also get event id from `data-eventid`, base 64 decode `atob`
   const eventId = jslog.match(/2:\["([^"]+)"/)?.[1] ?? null;
 
   return [calendarId, eventId];
@@ -285,55 +310,6 @@ const extractCalendarAndEventId = (el) => {
 
 function getSeriesId(eventId) {
   return eventId?.includes("_") ? eventId.split("_")[0] : eventId;
-}
-
-// Helper function to create Google Calendar URL from event data
-function createGoogleCalendarUrl(event) {
-  const baseUrl = "https://calendar.google.com/calendar/render?action=TEMPLATE";
-  const params = new URLSearchParams();
-
-  // Required: title
-  params.set("text", event.summary || "");
-
-  // Required: dates (start and end in UTC format YYYYMMDDTHHMMSSZ)
-  if (event.start && event.end) {
-    const startDate = new Date(event.start.dateTime || event.start.date);
-    const endDate = new Date(event.end.dateTime || event.end.date);
-
-    // Format dates for Google Calendar (YYYYMMDDTHHMMSSZ/YYYYMMDDTHHMMSSZ)
-    const formatDate = (date, isAllDay = false) => {
-      if (isAllDay) {
-        return date.toISOString().split("T")[0].replace(/-/g, "");
-      }
-      return date
-        .toISOString()
-        .replace(/[-:]/g, "")
-        .replace(/\.\d{3}/, "");
-    };
-
-    const isAllDay = !event.start.dateTime;
-    const startFormatted = formatDate(startDate, isAllDay);
-    const endFormatted = formatDate(endDate, isAllDay);
-
-    params.set("dates", `${startFormatted}/${endFormatted}`);
-  }
-
-  // Optional: description
-  if (event.description) {
-    params.set("details", event.description);
-  }
-
-  // Optional: location
-  if (event.location) {
-    params.set("location", event.location);
-  }
-
-  // Optional: timezone
-  if (event.start?.timeZone) {
-    params.set("ctz", event.start.timeZone);
-  }
-
-  return `${baseUrl}&${params.toString()}`;
 }
 
 // Revert visual changes to the event element
