@@ -8,6 +8,7 @@ Post back once done?
 - Modifying event with end time not on 15-min-increment (ex: 11:05) will round when saving. Expected bahavior (or):
   1. start time snaps to 15, end unchanged (becomes 9-10:01) preserves even start times
   2. start time snaps to 15 + ending offset (becomes 9:01-10:01) preserves even duration
+- Rare bug where fails to stop dragging, presumably because drag handle removed between mouse up & the code queries it to reset its styles (occurred once)
 
 
 ## Unrelated features
