@@ -17,19 +17,8 @@ const onMutation = (mutationList, observer) => {
       continue;
     }
 
-    // For some reason, there's no event when `li[role=menuitem]` is added,
-    // but there is when div elements are added to its container. Maybe these elements are reused?
-    // Anyways, I can just watch for parent == `ul`
-    //
-    // const isMenuItem =
-    //   mutation.type === "attributes" &&
-    //   mutation.attributeName === "role" &&
-    //   mutation.target.getAttribute("role") === "menuitem";
-    // const menuAdded =
-    //   mutation.type === "childList" &&
-    //   mutation.addedNodes[0]?.getAttribute?.("role") === "menuitem";
-
     // Observe when "copy to calendar" buttons added to DOM
+    // There's seemingly no event when `li[role=menuitem]` is added, listening more broadly
     // TODO: debounce
     if (
       mutation.target instanceof HTMLUListElement &&
@@ -56,7 +45,7 @@ function addMoveCopyBtns(buttons) {
 function onCopyClick(ev) {
   // preventDefault & stopPropagation seem to have no effect
   prompt(
-    "Would you like to move or copy, 1 or all? Options: copy 1, copy all, move 1, move all",
+    "Would you like to move or copy, 1 or all? Options: copy 1, copy all, move 1, move all. all/1 will have no effect on non-repeating events and can be omitted",
     "copy all",
   );
 }
