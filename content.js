@@ -30,6 +30,7 @@ const onMutation = (mutationList, observer) => {
   }
 };
 
+// Despite the name, `buttons` are actualy `li` elements
 function addMoveCopyBtns(buttons) {
   const internalId = buttons[0].getAttribute("data-eventid");
   const eventElement = document.querySelector(
@@ -37,18 +38,26 @@ function addMoveCopyBtns(buttons) {
   );
   const [calendarId, eventId] = extractCalendarAndEventId(eventElement);
 
-  for (const button of buttons) {
-    // Despite the name, these are actualy `li` elements
-    const dstCal = atob(button.dataset.id);
-    button.onclick = (ev) => onCopyClick(ev, calendarId, eventId, dstCal);
-  }
+  document.addEventListener(
+    "click",
+    (ev) => {
+      //if (!(ev.target instanceof HTMLLIElement)) return;
+      const dstCal = atob(ev.target.dataset.id);
+      ev.stopImmediatePropagation();
+      ev.preventDefault();
+      ev.stopPropagation();
+      onCopyClick(calendarId, eventId, dstCal);
+    },
+    { capture: true, once: true },
+  );
 }
 
-async function onCopyClick(ev, calendarId, eventId, dstCal) {
-  // preventDefault & stopPropagation seem to have no effect
-  const mode = prompt(
-    "Would you like to move or copy, 1 or all? Options: copy 1, copy all, move 1, move all. all/1 will have no effect on non-repeating events and can be omitted",
-    "copy all",
+async function onCopyClick(calendarId, eventId, dstCal) {
+  const mode = (
+    prompt(
+      "Would you like to move or copy, 1 or all? Options: copy 1, copy all, move 1, move all. all/1 will have no effect on non-repeating events and can be omitted",
+      "copy all",
+    ) ?? ""
   ).split(" ");
   const verb = mode[0];
   const quantity = mode[1] || "all";
@@ -68,7 +77,7 @@ async function onCopyClick(ev, calendarId, eventId, dstCal) {
         data: { calendarId, eventId },
       });
 
-      debugger;
+      // debugger;
       if (getResponse.success) {
         // Create a new event using the API (copy of the particular instance) on the correct destination calendar
         const createResponse = await chrome.runtime.sendMessage({
@@ -78,11 +87,10 @@ async function onCopyClick(ev, calendarId, eventId, dstCal) {
             eventData: getResponse.data,
           },
         });
-        debugger;
+        // debugger;
 
         if (createResponse.success) {
           // Open it for editing using this URL and the event id returned in the response
-          // https://calendar.google.com/calendar/u/0/r/eventedit/<eventId>
           const internalId = createResponse.data.htmlLink.split("=")[1];
           const editUrl =
             "https://calendar.google.com/calendar/u/0/r/eventedit/" +
