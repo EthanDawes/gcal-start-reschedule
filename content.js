@@ -40,6 +40,7 @@ function addMoveCopyBtns(buttons) {
   for (const button of buttons) {
     // Despite the name, these are actualy `li` elements
     const dstCal = atob(button.dataset.id);
+    // I tried hooking into document `capture` lifecycle, but didn't seem to work :/
     button.addEventListener("click", (ev) =>
       onCopyClick(ev, calendarId, eventId, dstCal),
     );
@@ -76,7 +77,6 @@ async function onCopyClick(ev, calendarId, eventId, dstCal) {
         data: { calendarId, eventId },
       });
 
-      // debugger;
       if (getResponse.success) {
         // Create a new event using the API (copy of the particular instance) on the correct destination calendar
         const createResponse = await chrome.runtime.sendMessage({
@@ -86,17 +86,10 @@ async function onCopyClick(ev, calendarId, eventId, dstCal) {
             eventData: getResponse.data,
           },
         });
-        // debugger;
 
+        const instructions =
+          " Click 'leave'. This page will not do what you expect!";
         if (createResponse.success) {
-          // Open it for editing using this URL and the event id returned in the response
-          const internalId = createResponse.data.htmlLink.split("=")[1];
-          const editUrl =
-            "https://calendar.google.com/calendar/u/0/r/eventedit/" +
-            internalId;
-
-          location.assign(editUrl);
-
           if (verb === "move") {
             // Use the API to delete the one instance
             const deleteResponse = await chrome.runtime.sendMessage({
@@ -105,8 +98,10 @@ async function onCopyClick(ev, calendarId, eventId, dstCal) {
             });
 
             if (deleteResponse.success) {
-              showNotification("Event moved successfully!", "success");
-              location.reload();
+              showNotification(
+                "Event moved successfully!" + instructions,
+                "success",
+              );
             } else {
               showNotification(
                 "Failed to delete original event: " + deleteResponse.error,
@@ -114,8 +109,19 @@ async function onCopyClick(ev, calendarId, eventId, dstCal) {
               );
             }
           } else {
-            showNotification("Event copied! Check the new tab.", "success");
+            showNotification("Event copied!" + instructions, "success");
           }
+
+          // Open it for editing using this URL and the event id returned in the response
+          const internalId = createResponse.data.htmlLink.split("=")[1];
+          const editUrl =
+            "https://calendar.google.com/calendar/u/0/r/eventedit/" +
+            internalId;
+
+          // Wait for the toast to appear so I can tell the user it is ok to navigate away
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => location.assign(editUrl)),
+          );
         } else {
           showNotification(
             "Failed to create new event: " + createResponse.error,
