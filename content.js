@@ -30,12 +30,20 @@ const onMutation = (mutationList, observer) => {
   }
 };
 
+// Speeds up moving events between calendars
+let eventInfo = Promise.reject("Not initialized");
+
 function addMoveCopyBtns(buttons) {
   const internalId = buttons[0].getAttribute("data-eventid");
   const eventElement = document.querySelector(
     `[data-eventid="${internalId}"][jslog]`,
   );
   const [calendarId, eventId] = extractCalendarAndEventId(eventElement);
+
+  eventInfo = chrome.runtime.sendMessage({
+    action: "getEvent",
+    data: { calendarId, eventId },
+  });
 
   for (const button of buttons) {
     // Despite the name, these are actualy `li` elements
@@ -72,10 +80,7 @@ async function onCopyClick(ev, calendarId, eventId, dstCal) {
   if (quantity === "1") {
     // Use the API to fetch the event details for that instance
     try {
-      const getResponse = await chrome.runtime.sendMessage({
-        action: "getEvent",
-        data: { calendarId, eventId },
-      });
+      const getResponse = await eventInfo;
 
       if (getResponse.success) {
         // Create a new event using the API (copy of the particular instance) on the correct destination calendar
@@ -88,26 +93,27 @@ async function onCopyClick(ev, calendarId, eventId, dstCal) {
         });
 
         const instructions =
-          " Click 'leave'. This page will not do what you expect!";
+          "Click 'leave'. This page will not do what you expect!";
         if (createResponse.success) {
           if (verb === "move") {
+            showNotification(instructions, "success");
             // Use the API to delete the one instance
-            const deleteResponse = await chrome.runtime.sendMessage({
-              action: "deleteEvent",
-              data: { calendarId, eventId },
-            });
-
-            if (deleteResponse.success) {
-              showNotification(
-                "Event moved successfully!" + instructions,
-                "success",
-              );
-            } else {
-              showNotification(
-                "Failed to delete original event: " + deleteResponse.error,
-                "error",
-              );
-            }
+            // Don't wait on this responce, will speed up flow
+            chrome.runtime
+              .sendMessage({
+                action: "deleteEvent",
+                data: { calendarId, eventId },
+              })
+              .then((deleteResponse) => {
+                if (deleteResponse.success) {
+                  showNotification("Event moved successfully!", "success");
+                } else {
+                  showNotification(
+                    "Failed to delete original event: " + deleteResponse.error,
+                    "error",
+                  );
+                }
+              });
           } else {
             showNotification("Event copied!" + instructions, "success");
           }
