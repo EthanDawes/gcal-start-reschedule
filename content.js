@@ -176,6 +176,9 @@ async function onCopyClick(ev, calendarId, eventId, dstCal) {
 }
 
 function addHandles(target) {
+  // Ignore Google Tasks
+  if (target.getAttribute("data-eventid").startsWith("tasks_")) return;
+
   const dragTarget = document.createElement("div");
   dragTarget.setAttribute("aria-hidden", "true");
   dragTarget.className = "resched-top";
