@@ -16,169 +16,77 @@ const onMutation = (mutationList, observer) => {
       addHandles(mutation.target);
       continue;
     }
-
-    // Observe when "copy to calendar" buttons added to DOM
-    // There's seemingly no event when `li[role=menuitem]` is added, listening more broadly
-    // TODO: debounce
-    if (
-      mutation.target instanceof HTMLUListElement &&
-      mutation.addedNodes.length
-    ) {
-      console.log("Menu items added", mutation.target);
-      addMoveCopyBtns(mutation.target.querySelectorAll("[data-eventid]")); // TODO: this ignores the regular "duplicate" button
-    }
   }
 };
 
 // Speeds up moving events between calendars
 let eventInfo = Promise.reject("Not initialized");
 
-function addMoveCopyBtns(buttons) {
-  const internalId = buttons[0].getAttribute("data-eventid");
-  const eventElement = document.querySelector(
-    `[data-eventid="${internalId}"][jslog]`,
-  );
-  const [calendarId, eventId] = extractCalendarAndEventId(eventElement);
+// verb = enum{'move', 'copy'}
+async function onMoveCopy1(verb, calendarId, eventId, dstCal) {
+  console.log(verb, "CLICKED");
+  // Use the API to fetch the event details for that instance
+  try {
+    const getResponse = await eventInfo;
 
-  eventInfo = chrome.runtime.sendMessage({
-    action: "getEvent",
-    data: { calendarId, eventId },
-  });
+    if (getResponse.success) {
+      // Create a new event using the API (copy of the particular instance) on the correct destination calendar
+      const createResponse = await chrome.runtime.sendMessage({
+        action: "createEvent",
+        data: {
+          calendarId: dstCal,
+          eventData: getResponse.data,
+        },
+      });
 
-  for (const button of buttons) {
-    // Despite the name, these are actualy `li` elements
-    const dstCal = atob(button.dataset.id);
-    // I tried hooking into document `capture` lifecycle, but didn't seem to work :/
-    button.addEventListener("click", (ev) =>
-      onCopyClick(ev, calendarId, eventId, dstCal),
-    );
-  }
-}
-
-async function onCopyClick(ev, calendarId, eventId, dstCal) {
-  // TODO: ideally prevent "copy edit" screen from appearing
-  ev.stopImmediatePropagation();
-  ev.preventDefault();
-  ev.stopPropagation();
-
-  const mode = (
-    prompt(
-      "Would you like to move or copy, 1 or all? Options: copy 1, copy all, move 1, move all. all/1 will have no effect on non-repeating events and can be omitted",
-      "copy all",
-    ) ?? ""
-  ).split(" ");
-  const verb = mode[0];
-  const quantity = mode[1] || "all";
-  if (
-    (verb != "copy" && verb != "move") ||
-    (quantity != "1" && quantity != "all")
-  ) {
-    alert("Unknown command. Proceeding with regular copy action");
-    return;
-  }
-
-  if (quantity === "1") {
-    // Use the API to fetch the event details for that instance
-    try {
-      const getResponse = await eventInfo;
-
-      if (getResponse.success) {
-        // Create a new event using the API (copy of the particular instance) on the correct destination calendar
-        const createResponse = await chrome.runtime.sendMessage({
-          action: "createEvent",
-          data: {
-            calendarId: dstCal,
-            eventData: getResponse.data,
-          },
-        });
-
-        const instructions =
-          "Click 'leave'. This page will not do what you expect!";
-        if (createResponse.success) {
-          if (verb === "move") {
-            showNotification(instructions, "success");
-            // Use the API to delete the one instance
-            // Don't wait on this responce, will speed up flow
-            chrome.runtime
-              .sendMessage({
-                action: "deleteEvent",
-                data: { calendarId, eventId },
-              })
-              .then((deleteResponse) => {
-                if (deleteResponse.success) {
-                  showNotification("Event moved successfully!", "success");
-                } else {
-                  showNotification(
-                    "Failed to delete original event: " + deleteResponse.error,
-                    "error",
-                  );
-                }
-              });
-          } else {
-            showNotification("Event copied!" + instructions, "success");
-          }
-
-          // Open it for editing using this URL and the event id returned in the response
-          const internalId = createResponse.data.htmlLink.split("=")[1];
-          const editUrl =
-            "https://calendar.google.com/calendar/u/0/r/eventedit/" +
-            internalId;
-
-          // Wait for the toast to appear so I can tell the user it is ok to navigate away
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() => location.assign(editUrl)),
-          );
+      if (createResponse.success) {
+        if (verb === "move") {
+          // Use the API to delete the one instance
+          // Don't wait on this responce, will speed up flow
+          chrome.runtime
+            .sendMessage({
+              action: "deleteEvent",
+              data: { calendarId, eventId },
+            })
+            .then((deleteResponse) => {
+              if (deleteResponse.success) {
+                showNotification("Event moved successfully!", "success");
+              } else {
+                showNotification(
+                  "Failed to delete original event: " + deleteResponse.error,
+                  "error",
+                );
+              }
+            });
         } else {
-          showNotification(
-            "Failed to create new event: " + createResponse.error,
-            "error",
-          );
-          return;
+          showNotification("Event copied!", "success");
         }
       } else {
         showNotification(
-          "Failed to fetch event details: " + getResponse.error,
+          "Failed to create new event: " + createResponse.error,
           "error",
         );
         return;
       }
-    } catch (error) {
-      showNotification("Error copying event: " + error.message, "error");
+    } else {
+      showNotification(
+        "Failed to fetch event details: " + getResponse.error,
+        "error",
+      );
       return;
     }
-  } else {
-    // all
-    if (verb === "move") {
-      // show the "copy event" dialogue, as usual
-      // Allow the default copy action to proceed
-
-      // In the background, use the API to delete the event series
-      // Upon returning, wait for sync to remove the old event (don't need instant refresh because nothing bad can happen if you try to edit the ghost event)
-      setTimeout(async () => {
-        try {
-          const seriesId = getSeriesId(eventId);
-          const deleteResponse = await chrome.runtime.sendMessage({
-            action: "deleteEvent",
-            data: { calendarId, eventId: seriesId },
-          });
-
-          if (deleteResponse.success) {
-            showNotification("Original event series deleted", "success");
-            // Optional: reload after a delay to show the deletion
-            //setTimeout(() => location.reload(), 3000);
-          } else {
-            showNotification(
-              "Failed to delete original series: " + deleteResponse.error,
-              "error",
-            );
-          }
-        } catch (error) {
-          console.error("Error deleting series:", error);
-        }
-      }, 1000);
-    }
-    // copy all: do nothing, this is default action
+  } catch (error) {
+    showNotification("Error copying event: " + error.message, "error");
+    return;
   }
+
+  // Go back
+  navigation.back();
+  // Allow time for confirmation to be added & button focused.
+  await timeout(200);
+  document.activeElement.click();
+  await timeout(1000);
+  softRefresh();
 }
 
 function addHandles(target) {
@@ -295,7 +203,7 @@ async function onDragEnd(ev) {
         console.log("Event successfully rescheduled:", response.data);
         // Optionally show a success message
         showNotification("Event rescheduled successfully!", "success");
-        location.reload();
+        softRefresh();
       } else {
         console.error("Failed to reschedule event:", response.error);
         showNotification(
@@ -397,18 +305,74 @@ function init() {
 
   attachAll();
 
-  window.navigation.addEventListener("navigate", (e) => {
+  window.navigation.addEventListener("navigate", async (e) => {
     // For some reason, gcal fires `navigate` events for clicking events & other random things
     // I only care about view changes
     const from = window.location.href;
     const to = e.destination.url;
+    const location = new URL(to);
 
     if (from !== to) {
       console.log(`Navigating from ${from} to ${to}`);
-      // kinda hacky, but it works
-      setTimeout(attachAll, 1000);
+
+      // If duplicating event:
+      if (to.includes("/eventedit/copy/")) {
+        const scope = new URLSearchParams(location.search).get("scp");
+        // ?scp=ONE allows editing one directly, but takes extra clicks
+        if (scope === "ALL") {
+          // Get event id, cal id, dest cal id
+          let [from, toCal] = location.pathname.split("/").slice(-2).map(atob);
+          let [fromId, fromCal] = from.split(" ");
+          fromCal = fromCal
+            .replace("@g", "@group.calendar.google.com")
+            .replace("@m", "@gmail.com");
+          console.log(fromId, fromCal, toCal);
+
+          // Prep event details in case user wants to move/copy 1
+          eventInfo = chrome.runtime.sendMessage({
+            action: "getEvent",
+            data: { calendarId: fromCal, eventId: fromId },
+          });
+
+          // Hopefuly this will ensure new elements have been added to DOM
+          await timeout(1000);
+
+          // show "copy 1" and "move 1" buttons
+          const saveButton = document.querySelector('[aria-label="Save"]');
+          const copy1Button = document.createElement("button");
+          const move1Button = document.createElement("button");
+          saveButton.classList.add("copy-move-btn");
+          copy1Button.className = move1Button.className = saveButton.className;
+          copy1Button.innerText = "Copy 1";
+          move1Button.innerText = "Move 1";
+          saveButton.innerText = "Copy all";
+          saveButton.after(copy1Button);
+          copy1Button.after(move1Button);
+          // TODO: re-style button text
+
+          // Add listeners
+          copy1Button.onclick = () =>
+            onMoveCopy1("copy", fromCal, fromId, toCal);
+          move1Button.onclick = () =>
+            onMoveCopy1("move", fromCal, fromId, toCal);
+        }
+      } else {
+        // kinda hacky, but it works
+        setTimeout(attachAll, 1000);
+      }
     }
   });
 }
+
+function softRefresh() {
+  console.log("Attempting refresh...");
+  // As goofy as it is to make a bunch of history entries, `replaceState` works worse
+  history.pushState({}, "", location.pathname + "?refresh");
+  window.dispatchEvent(new Event("popstate"));
+  // visibiltychange and online/offline didn't seem to do any better than fake popstate
+  // Correctly removes deleted event, but doesn't show new one
+}
+
+const timeout = (delayMs) => new Promise((res) => setTimeout(res, delayMs));
 
 setTimeout(init, 1 * 1000);
