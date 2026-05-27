@@ -5,7 +5,7 @@
   "author": "Ethan Dawes",
   "description": "Reschedule Google Calendar events with custom start time and duration",
   "icons": {
-    "500": "Calendar.png"
+    "500": "calendar.png"
   },
   "permissions": ["identity"],
   "background": {
