@@ -203,7 +203,7 @@ async function onDragEnd(ev) {
         console.log("Event successfully rescheduled:", response.data);
         // Optionally show a success message
         showNotification("Event rescheduled successfully!", "success");
-        softRefresh();
+        setTimeout(softRefresh, 1000);
       } else {
         console.error("Failed to reschedule event:", response.error);
         showNotification(
@@ -342,7 +342,7 @@ function init() {
           const copy1Button = document.createElement("button");
           const move1Button = document.createElement("button");
           saveButton.classList.add("copy-move-btn");
-          copy1Button.className = move1Button.className = saveButton.className;
+          copy1Button.className = move1Button.className = saveButton.className += " extSaveBtn";
           copy1Button.innerText = "Copy 1";
           move1Button.innerText = "Move 1";
           saveButton.innerText = "Copy all";

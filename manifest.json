@@ -2,7 +2,11 @@
   "manifest_version": 3,
   "name": "Google Calendar Start Reschedule",
   "version": "1.0.0",
+  "author": "Ethan Dawes",
   "description": "Reschedule Google Calendar events with custom start time and duration",
+  "icons": {
+    "500": "Calendar.png"
+  },
   "permissions": ["identity"],
   "background": {
     "service_worker": "background.js"
@@ -17,5 +21,13 @@
   "oauth2": {
     "client_id": "316714518512-bkjgtq07ggucic3p4l13rafa9hreuuu8.apps.googleusercontent.com",
     "scopes": ["https://www.googleapis.com/auth/calendar.events"]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "gcal-reschedule@ethandawes.dev",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
   }
 }

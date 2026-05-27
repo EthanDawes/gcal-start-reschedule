@@ -23,3 +23,10 @@
     -webkit-user-select: none;
     user-select: none;
 }
+
+.extSaveBtn {
+    font-family: "Google Sans Flex", "Google Sans Text", "Google Sans", Roboto, Arial, sans-serif;
+    font-size: var(--gm3-button-filled-label-text-size, .875rem);
+    font-weight: var(--gm3-button-filled-label-text-weight, 500);
+    color: white;
+}
